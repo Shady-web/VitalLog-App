@@ -1,3 +1,17 @@
+# ── QVAC model files (downloaded at runtime, never committed) ──
+# Local LLM / ONNX / speech weights and the SDK's on-disk model cache.
+*.gguf
+*.onnx
+.qvac/
+
+# ── Private health data (never leaves the device, never committed) ──
+# On-disk journal entries, OCR/transcription output, embeddings, and any
+# imported medical documents. Only data/reference/ (bundled glossary) is tracked.
+/data/journal/
+/data/docs/
+/data/embeddings/
+/data/store/
+
 # Logs
 logs
 *.log
