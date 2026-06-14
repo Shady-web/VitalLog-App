@@ -7,7 +7,7 @@
 //   transcribe({ modelId, audioChunk }) -> Promise<string>   (full transcript)
 //   unloadModel({ modelId })
 // Supported audio inputs (SUPPORTED_AUDIO_FORMATS): .mp3 .m4a .ogg .wav .flac .aac .raw
-import { loadModel, WHISPER_TINY, transcribe as runTranscribe, unloadModel } from "@qvac/sdk";
+import { loadModel, WHISPER_EN_BASE_Q8_0, transcribe as runTranscribe, unloadModel } from "@qvac/sdk";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { addEntry, type JournalEntry } from "./store.ts";
@@ -28,7 +28,7 @@ export async function transcribeFile(
   }
 
   const modelId = await loadModel({
-    modelSrc: WHISPER_TINY,
+    modelSrc: WHISPER_EN_BASE_Q8_0,
     modelType: "whisper",
     modelConfig: {
       language: "en",

@@ -84,7 +84,7 @@ async function cmdTranscribe(args: string[]) {
     process.exit(1);
   }
 
-  console.error(`Transcribing: ${audioPath}\n(first run downloads ~78 MB Whisper model)\n`);
+  console.error(`Transcribing: ${audioPath}\n(first run downloads ~82 MB Whisper model)\n`);
   const entry = await transcribeToJournal(audioPath, { onProgress: downloadProgress });
 
   console.error("\n--- Transcript ---");
