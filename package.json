@@ -6,7 +6,8 @@
   "license": "Apache-2.0",
   "scripts": {
     "quickstart": "node quickstart.mjs",
-    "explain": "tsx core/cli.ts",
+    "explain": "tsx core/cli.ts explain",
+    "ocr": "tsx core/cli.ts ocr",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
