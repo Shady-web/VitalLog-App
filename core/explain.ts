@@ -55,6 +55,10 @@ export async function explain(
   const modelId = await loadModel({
     modelSrc: LLAMA_3_2_1B_INST_Q4_0,
     modelType: "llm",
+    // Default ctx_size is 1024 tokens, which overflows once a full document
+    // (e.g. OCR'd lab text) plus the system prompt is in the prompt. 4096 gives
+    // ample room for the input, the guardrail prompt, and the explanation.
+    modelConfig: { ctx_size: 4096 },
     onProgress: options.onProgress,
   });
 
@@ -67,7 +71,13 @@ export async function explain(
       },
     ];
 
-    const run = completion({ modelId, history, stream: true });
+    // Cap generation so prompt + output stays within the context window.
+    const run = completion({
+      modelId,
+      history,
+      stream: true,
+      generationParams: { predict: 512 },
+    });
 
     // `run.events` is the canonical consumption API. Accumulate the assistant
     // text from `contentDelta` events (and forward each delta to onToken).
