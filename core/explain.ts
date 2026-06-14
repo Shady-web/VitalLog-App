@@ -80,9 +80,14 @@ export async function explain(
     }
     answer = answer.trim();
 
-    // Guardrail backstop: the prompt requires the disclaimer; ensure it is present.
-    if (!answer.includes(DISCLAIMER)) {
-      answer = `${answer}\n\n${DISCLAIMER}`;
+    // Guardrail backstop: the plan requires every output to END WITH the exact
+    // disclaimer. Models often paraphrase it, so if the text doesn't already end
+    // with the canonical line, append it — and push it through onToken too, so a
+    // streaming consumer (the CLI) actually shows the enforced disclaimer.
+    if (!answer.endsWith(DISCLAIMER)) {
+      const tail = `\n\n${DISCLAIMER}`;
+      answer = `${answer}${tail}`;
+      options.onToken?.(tail);
     }
 
     return answer;
