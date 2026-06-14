@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VitalLog — private health journal &amp; explainer</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E%F0%9F%A9%BA%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <!-- icon sprite (inline, offline) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></symbol>
+      <symbol id="i-journal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16a1 1 0 0 0 1 1h14V3H5a1 1 0 0 0-1 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+      <symbol id="i-ask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9.5 9a2.5 2.5 0 1 1 3 2.5V13"/><path d="M12 16h.01"/></symbol>
+      <symbol id="i-summary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8l-5-5z"/><path d="M9 3v5h5M8 13h8M8 17h5"/></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></symbol>
+      <symbol id="i-quote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+      <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></symbol>
+      <symbol id="i-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-mark"><svg><use href="#i-pulse"/></svg></div>
+      <div class="brand-text">
+        <h1>VitalLog</h1>
+        <p>Private, on-device health journal &amp; explainer</p>
+      </div>
+      <span class="offline-pill"><span class="dot"></span> 100% on-device</span>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="journal"><svg><use href="#i-journal"/></svg> Journal</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="documents"><svg><use href="#i-doc"/></svg> Documents</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="ask"><svg><use href="#i-ask"/></svg> Ask</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="summary"><svg><use href="#i-summary"/></svg> Summary</button>
+    </nav>
+
+    <main>
+      <!-- JOURNAL -->
+      <section class="screen active" id="screen-journal">
+        <div class="screen-head">
+          <h2>Journal</h2>
+          <p>Record or upload a voice note. It's transcribed on this device and saved to your journal.</p>
+        </div>
+        <div class="card">
+          <div class="recorder">
+            <button class="rec-btn" id="recBtn" title="Record"><svg><use href="#i-mic"/></svg></button>
+            <div>
+              <div class="rec-time" id="recTime">Tap to record</div>
+              <div class="rec-meta" id="recMeta">…or upload an audio file (.wav .m4a .mp3 .ogg .flac .aac)</div>
+            </div>
+            <button class="btn btn-ghost" id="audioUploadBtn" style="margin-left:auto"><svg><use href="#i-upload"/></svg> Upload audio</button>
+            <input type="file" id="audioInput" accept=".wav,.m4a,.mp3,.ogg,.flac,.aac,audio/*" hidden />
+          </div>
+          <div id="journalStatus"></div>
+        </div>
+
+        <div class="card">
+          <div class="section-label">Your entries</div>
+          <div id="journalList"></div>
+        </div>
+      </section>
+
+      <!-- DOCUMENTS -->
+      <section class="screen" id="screen-documents">
+        <div class="screen-head">
+          <h2>Documents</h2>
+          <p>Upload a photo of a lab result or medication label. VitalLog reads it and explains it in plain language, with citations.</p>
+        </div>
+        <div class="card">
+          <div class="dropzone" id="docDrop" tabindex="0" role="button">
+            <svg class="dz-icon"><use href="#i-upload"/></svg>
+            <div class="dz-title">Click to choose, or drag an image here</div>
+            <div class="dz-sub">JPG, PNG, or BMP of a lab result or label</div>
+          </div>
+          <input type="file" id="docInput" accept="image/*" hidden />
+          <img id="docPreview" class="preview-img" alt="" hidden />
+          <div class="btn-row" style="margin-top:var(--s-4)">
+            <button class="btn btn-primary" id="docRun" disabled><svg><use href="#i-doc"/></svg> Read &amp; explain</button>
+          </div>
+          <div id="docStatus"></div>
+        </div>
+        <div class="card" id="docResult" hidden>
+          <div class="section-label">Extracted text</div>
+          <div class="ocr-text" id="docOcr"></div>
+          <div class="section-label">Plain-language explanation</div>
+          <div class="output" id="docExplain"></div>
+          <div id="docCitations"></div>
+        </div>
+      </section>
+
+      <!-- ASK -->
+      <section class="screen" id="screen-ask">
+        <div class="screen-head">
+          <h2>Ask</h2>
+          <p>Ask what a term or result means. Answers are grounded in a bundled reference and cite their source.</p>
+        </div>
+        <div class="card">
+          <textarea class="field" id="askInput" placeholder="e.g. What does LDL cholesterol mean, and is 162 high?"></textarea>
+          <div class="btn-row" style="margin-top:var(--s-3)">
+            <button class="btn btn-primary" id="askRun"><svg><use href="#i-ask"/></svg> Ask</button>
+            <span class="rec-meta">Tip: it will decline to diagnose or advise on medication — that's by design.</span>
+          </div>
+          <div id="askStatus"></div>
+        </div>
+        <div class="card" id="askResult" hidden>
+          <div class="output" id="askAnswer"></div>
+          <div id="askCitations"></div>
+        </div>
+      </section>
+
+      <!-- SUMMARY -->
+      <section class="screen" id="screen-summary">
+        <div class="screen-head">
+          <h2>Doctor-ready summary</h2>
+          <p>Turn your journal into a one-pager to bring to an appointment: symptom timeline, medications, and questions to ask.</p>
+        </div>
+        <div class="card">
+          <div class="btn-row">
+            <button class="btn btn-primary btn-lg" id="sumRun"><svg><use href="#i-summary"/></svg> Generate summary</button>
+            <button class="btn btn-ghost" id="sumPrint" disabled><svg><use href="#i-print"/></svg> Print / save as PDF</button>
+          </div>
+          <div id="sumStatus"></div>
+        </div>
+        <div class="card" id="sumResult" hidden>
+          <div class="output report" id="sumReport"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="safety" role="note">
+      <svg><use href="#i-warn"/></svg>
+      <span>Not medical advice — consult a licensed professional.</span>
+      <span class="muted">VitalLog explains and organizes; it does not diagnose or recommend treatment.</span>
+    </div>
+    <footer class="credits">Runs entirely on your device via the QVAC SDK. No network. No cloud.</footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

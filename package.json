@@ -12,6 +12,7 @@
     "rag:ingest": "tsx core/cli.ts rag:ingest",
     "rag": "tsx core/cli.ts rag",
     "summary": "tsx core/cli.ts summary",
+    "ui": "tsx app-node/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
