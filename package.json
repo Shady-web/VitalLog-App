@@ -9,6 +9,8 @@
     "explain": "tsx core/cli.ts explain",
     "ocr": "tsx core/cli.ts ocr",
     "transcribe": "tsx core/cli.ts transcribe",
+    "rag:ingest": "tsx core/cli.ts rag:ingest",
+    "rag": "tsx core/cli.ts rag",
     "typecheck": "tsc --noEmit"
   },
   "repository": {

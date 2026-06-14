@@ -8,6 +8,7 @@
 import { explain } from "./explain.ts";
 import { extractText } from "./ocr.ts";
 import { transcribeToJournal } from "./transcribe.ts";
+import { ingest as ragIngest, answer as ragAnswer } from "./rag.ts";
 
 const SAMPLE_LAB_RESULT = `COMPLETE BLOOD COUNT (CBC)
 Hemoglobin: 11.2 g/dL (reference 13.5-17.5)  LOW
@@ -93,6 +94,37 @@ async function cmdTranscribe(args: string[]) {
   console.error(`\n✅ Saved journal entry ${entry.id} (${entry.timestamp}) to data/journal/entries.json`);
 }
 
+// `npm run rag:ingest` -> embed the bundled glossary into a local vector store.
+async function cmdRagIngest() {
+  console.error(
+    "Ingesting data/reference/ glossary into embeddings...\n" +
+      "(first run downloads ~278 MB embedding model)\n",
+  );
+  const n = await ragIngest({ onProgress: downloadProgress });
+  console.error(`\n✅ Embedded ${n} glossary entries to data/embeddings/glossary.json`);
+}
+
+// `npm run rag -- "what does LDL mean?"` -> grounded answer with citations.
+async function cmdRag(args: string[]) {
+  const query = args.join(" ").trim();
+  if (!query) {
+    console.error('Usage: npm run rag -- "<question>"');
+    process.exit(1);
+  }
+
+  console.error(`Question: ${query}\n`);
+  const { answer, citations } = await ragAnswer(query, {
+    onToken: (token) => process.stdout.write(token),
+    onProgress: downloadProgress,
+  });
+  process.stdout.write("\n");
+
+  console.error("\n--- Citations (retrieved glossary entries) ---");
+  for (const c of citations) {
+    console.error(`  • ${c.term}  (${c.source}, similarity ${c.score})`);
+  }
+}
+
 async function main() {
   const command = process.argv[2];
   const args = process.argv.slice(3);
@@ -104,13 +136,19 @@ async function main() {
       return cmdOcr(args);
     case "transcribe":
       return cmdTranscribe(args);
+    case "rag:ingest":
+      return cmdRagIngest();
+    case "rag":
+      return cmdRag(args);
     default:
       console.error(
         `Unknown command: ${command ?? "(none)"}\n` +
           `Usage:\n` +
           `  npm run explain -- "<text>"\n` +
           `  npm run ocr -- <image-path>\n` +
-          `  npm run transcribe -- <audio-path>`,
+          `  npm run transcribe -- <audio-path>\n` +
+          `  npm run rag:ingest\n` +
+          `  npm run rag -- "<question>"`,
       );
       process.exit(1);
   }
