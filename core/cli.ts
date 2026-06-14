@@ -7,6 +7,7 @@
 //   npm run ocr -- ./data/samples/sample-lab.png     # photo -> extracted text -> explanation
 import { explain } from "./explain.ts";
 import { extractText } from "./ocr.ts";
+import { transcribeToJournal } from "./transcribe.ts";
 
 const SAMPLE_LAB_RESULT = `COMPLETE BLOOD COUNT (CBC)
 Hemoglobin: 11.2 g/dL (reference 13.5-17.5)  LOW
@@ -72,6 +73,26 @@ async function cmdOcr(args: string[]) {
   process.stdout.write("\n");
 }
 
+// `npm run transcribe -- <audio-path>` -> transcript -> saved as a journal entry.
+async function cmdTranscribe(args: string[]) {
+  const audioPath = (args[0] || "").trim();
+  if (!audioPath) {
+    console.error(
+      "Usage: npm run transcribe -- <audio-path>\n" +
+        "Supported: .mp3 .m4a .ogg .wav .flac .aac  (e.g. a voice memo)",
+    );
+    process.exit(1);
+  }
+
+  console.error(`Transcribing: ${audioPath}\n(first run downloads ~78 MB Whisper model)\n`);
+  const entry = await transcribeToJournal(audioPath, { onProgress: downloadProgress });
+
+  console.error("\n--- Transcript ---");
+  console.log(entry.text);
+  console.error("--- End transcript ---");
+  console.error(`\n✅ Saved journal entry ${entry.id} (${entry.timestamp}) to data/journal/entries.json`);
+}
+
 async function main() {
   const command = process.argv[2];
   const args = process.argv.slice(3);
@@ -81,12 +102,15 @@ async function main() {
       return cmdExplain(args);
     case "ocr":
       return cmdOcr(args);
+    case "transcribe":
+      return cmdTranscribe(args);
     default:
       console.error(
         `Unknown command: ${command ?? "(none)"}\n` +
           `Usage:\n` +
           `  npm run explain -- "<text>"\n` +
-          `  npm run ocr -- <image-path>`,
+          `  npm run ocr -- <image-path>\n` +
+          `  npm run transcribe -- <audio-path>`,
       );
       process.exit(1);
   }

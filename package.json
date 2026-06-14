@@ -8,6 +8,7 @@
     "quickstart": "node quickstart.mjs",
     "explain": "tsx core/cli.ts explain",
     "ocr": "tsx core/cli.ts ocr",
+    "transcribe": "tsx core/cli.ts transcribe",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
