@@ -9,6 +9,7 @@ import { explain } from "./explain.ts";
 import { extractText } from "./ocr.ts";
 import { transcribeToJournal } from "./transcribe.ts";
 import { ingest as ragIngest, answer as ragAnswer } from "./rag.ts";
+import { summarize } from "./summary.ts";
 
 const SAMPLE_LAB_RESULT = `COMPLETE BLOOD COUNT (CBC)
 Hemoglobin: 11.2 g/dL (reference 13.5-17.5)  LOW
@@ -125,6 +126,16 @@ async function cmdRag(args: string[]) {
   }
 }
 
+// `npm run summary` -> doctor-ready one-pager from the saved journal entries.
+async function cmdSummary() {
+  console.error("Building doctor-ready summary from your journal...\n");
+  await summarize({
+    onToken: (token) => process.stdout.write(token),
+    onProgress: downloadProgress,
+  });
+  process.stdout.write("\n");
+}
+
 async function main() {
   const command = process.argv[2];
   const args = process.argv.slice(3);
@@ -140,6 +151,8 @@ async function main() {
       return cmdRagIngest();
     case "rag":
       return cmdRag(args);
+    case "summary":
+      return cmdSummary();
     default:
       console.error(
         `Unknown command: ${command ?? "(none)"}\n` +
@@ -148,7 +161,8 @@ async function main() {
           `  npm run ocr -- <image-path>\n` +
           `  npm run transcribe -- <audio-path>\n` +
           `  npm run rag:ingest\n` +
-          `  npm run rag -- "<question>"`,
+          `  npm run rag -- "<question>"\n` +
+          `  npm run summary`,
       );
       process.exit(1);
   }

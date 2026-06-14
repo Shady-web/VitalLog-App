@@ -11,6 +11,7 @@
     "transcribe": "tsx core/cli.ts transcribe",
     "rag:ingest": "tsx core/cli.ts rag:ingest",
     "rag": "tsx core/cli.ts rag",
+    "summary": "tsx core/cli.ts summary",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
