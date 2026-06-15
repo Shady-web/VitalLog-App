@@ -1,0 +1,26 @@
+{
+  "name": "vitallog-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "prebuild": "expo prebuild --platform android --clean",
+    "android": "expo run:android",
+    "doctor": "npx expo-doctor"
+  },
+  "dependencies": {
+    "@qvac/sdk": "^0.12.2",
+    "expo": "^53.0.0",
+    "expo-build-properties": "~0.14.0",
+    "expo-device": "~7.1.0",
+    "expo-file-system": "~18.1.0",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-bare-kit": "^0.14.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.0.0",
+    "typescript": "~5.8.3"
+  }
+}
