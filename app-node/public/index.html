@@ -27,14 +27,42 @@
     </defs>
   </svg>
 
-  <div class="app">
+  <!-- AUTH (shown until signed in) -->
+  <div class="auth" id="authView">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark"><svg><use href="#i-pulse"/></svg></div>
+        <div class="brand-text"><h1>VitalLog</h1><p>Your private health journal &amp; explainer</p></div>
+      </div>
+      <h2 class="auth-title" id="authTitle">Welcome back</h2>
+      <p class="auth-sub" id="authSub">Sign in to your account.</p>
+      <form id="authForm" autocomplete="off">
+        <label class="auth-label" for="authUser">Username</label>
+        <input class="field" id="authUser" name="username" autocomplete="username" />
+        <label class="auth-label" for="authPass">Password</label>
+        <input class="field" id="authPass" name="password" type="password" autocomplete="current-password" />
+        <button class="btn btn-primary btn-lg" id="authSubmit" type="submit" style="width:100%;margin-top:var(--s-4)">Sign in</button>
+        <div id="authError"></div>
+      </form>
+      <p class="auth-toggle">
+        <span id="authToggleText">New here?</span>
+        <a href="#" id="authToggle">Create an account</a>
+      </p>
+    </div>
+    <p class="auth-foot"><svg><use href="#i-shield"/></svg> Your account and entries stay on this device.</p>
+  </div>
+
+  <div class="app" id="app" hidden>
     <header class="topbar">
       <div class="brand-mark"><svg><use href="#i-pulse"/></svg></div>
       <div class="brand-text">
         <h1>VitalLog</h1>
-        <p>Private, on-device health journal &amp; explainer</p>
+        <p>Private health journal &amp; explainer</p>
       </div>
-      <span class="offline-pill"><span class="dot"></span> 100% on-device</span>
+      <div class="user-chip" id="userChip">
+        <span class="user-name" id="userName"></span>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
+      </div>
     </header>
 
     <nav class="tabs" role="tablist">
@@ -142,7 +170,7 @@
       <span>Not medical advice — consult a licensed professional.</span>
       <span class="muted">VitalLog explains and organizes; it does not diagnose or recommend treatment.</span>
     </div>
-    <footer class="credits">Runs entirely on your device via the QVAC SDK. No network. No cloud.</footer>
+    <footer class="credits">VitalLog keeps your health information private.</footer>
   </div>
 
   <script src="/app.js"></script>

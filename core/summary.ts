@@ -13,6 +13,8 @@ const DISCLAIMER = "This is general information, not medical advice.";
 export interface SummaryOptions {
   onToken?: (t: string) => void;
   onProgress?: (progress: unknown) => void;
+  /** Read entries from this journal file instead of the default (used for per-user journals). */
+  journalPath?: string;
 }
 
 function formatEntries(entries: JournalEntry[]): string {
@@ -29,7 +31,7 @@ function formatEntries(entries: JournalEntry[]): string {
  * Throws if the journal is empty (nothing to summarize).
  */
 export async function summarize(options: SummaryOptions = {}): Promise<string> {
-  const entries = getEntries();
+  const entries = getEntries(options.journalPath);
   if (entries.length === 0) {
     throw new Error(
       "No journal entries found. Add some first, e.g. `npm run transcribe -- <audio>`.",

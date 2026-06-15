@@ -95,7 +95,7 @@ async function loadJournal() {
 }
 
 async function submitAudio(blob, filename) {
-  journalStatus.innerHTML = spinner("Transcribing on-device… (first run downloads the speech model)");
+  journalStatus.innerHTML = spinner("Transcribing…");
   try {
     const res = await fetch("/api/transcribe", {
       method: "POST",
@@ -225,7 +225,7 @@ docDrop.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) setDocFil
 docRun.addEventListener("click", async () => {
   if (!docFile) return;
   docRun.disabled = true;
-  docStatus.innerHTML = spinner("Starting…");
+  docStatus.innerHTML = spinner("Thinking…");
   $("#docResult").hidden = true;
   $("#docOcr").textContent = "";
   $("#docExplain").textContent = "";
@@ -258,7 +258,7 @@ askRun.addEventListener("click", async () => {
   const q = $("#askInput").value.trim();
   if (!q) return;
   askRun.disabled = true;
-  $("#askStatus").innerHTML = spinner("Thinking on-device…");
+  $("#askStatus").innerHTML = spinner("Thinking…");
   $("#askResult").hidden = false;
   $("#askAnswer").textContent = "";
   $("#askCitations").innerHTML = "";
@@ -285,7 +285,7 @@ const sumPrint = $("#sumPrint");
 sumRun.addEventListener("click", async () => {
   sumRun.disabled = true;
   sumPrint.disabled = true;
-  $("#sumStatus").innerHTML = spinner("Building your one-pager on-device…");
+  $("#sumStatus").innerHTML = spinner("Cooking up your summary…");
   $("#sumResult").hidden = false;
   $("#sumReport").textContent = "";
   try {
@@ -303,5 +303,78 @@ sumRun.addEventListener("click", async () => {
 });
 sumPrint.addEventListener("click", () => window.print());
 
-// initial
-loadJournal();
+// ====================================================================
+// AUTH
+// ====================================================================
+let authMode = "login"; // or "register"
+const authView = $("#authView");
+const appView = $("#app");
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const isLogin = mode === "login";
+  $("#authTitle").textContent = isLogin ? "Welcome back" : "Create your account";
+  $("#authSub").textContent = isLogin ? "Sign in to your account." : "Your account stays on this device.";
+  $("#authSubmit").textContent = isLogin ? "Sign in" : "Create account";
+  $("#authToggleText").textContent = isLogin ? "New here?" : "Already have an account?";
+  $("#authToggle").textContent = isLogin ? "Create an account" : "Sign in";
+  $("#authPass").setAttribute("autocomplete", isLogin ? "current-password" : "new-password");
+  $("#authError").innerHTML = "";
+}
+
+$("#authToggle").addEventListener("click", (e) => {
+  e.preventDefault();
+  setAuthMode(authMode === "login" ? "register" : "login");
+});
+
+$("#authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = $("#authUser").value.trim();
+  const password = $("#authPass").value;
+  const submit = $("#authSubmit");
+  if (!username || !password) { $("#authError").innerHTML = errorBox("Enter a username and password."); return; }
+  submit.disabled = true;
+  $("#authError").innerHTML = "";
+  try {
+    const res = await fetch("/api/" + authMode, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { $("#authError").innerHTML = errorBox(data.error || "Something went wrong."); return; }
+    enterApp(data.user);
+  } catch (err) {
+    $("#authError").innerHTML = errorBox(err.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+$("#logoutBtn").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  appView.hidden = true;
+  authView.hidden = false;
+  $("#authUser").value = "";
+  $("#authPass").value = "";
+  setAuthMode("login");
+});
+
+function enterApp(user) {
+  $("#userName").textContent = user.username;
+  authView.hidden = true;
+  appView.hidden = false;
+  loadJournal();
+}
+
+async function initAuth() {
+  try {
+    const { user } = await (await fetch("/api/me")).json();
+    if (user) { enterApp(user); return; }
+  } catch {}
+  authView.hidden = false;
+  appView.hidden = true;
+  setAuthMode("login");
+}
+
+initAuth();

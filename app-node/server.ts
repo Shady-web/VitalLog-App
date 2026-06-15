@@ -2,25 +2,34 @@
 //
 // Fully offline: Node's built-in http server, no framework, no external assets. It
 // serves the static UI from app-node/public/ and exposes a tiny API that calls the
-// existing core/ modules unchanged. All AI still runs through core/ -> @qvac/sdk.
+// existing core/ modules. All AI runs through core/ -> @qvac/sdk; nothing leaves the box.
 //
-// Generation endpoints stream NDJSON (one JSON object per line) so the UI can show
-// tokens as the local models produce them.
+// Accounts are local (app-node/auth.ts). Each account has its own private journal at
+// data/journal/<userId>/entries.json. Generation endpoints stream NDJSON so the UI can
+// show progress as the local models produce tokens.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { getEntries } from "../core/store.ts";
-import { transcribeToJournal } from "../core/transcribe.ts";
+import { getEntries, addEntry } from "../core/store.ts";
+import { transcribeFile } from "../core/transcribe.ts";
 import { extractText } from "../core/ocr.ts";
 import { answer as ragAnswer, ingest as ragIngest } from "../core/rag.ts";
 import { summarize } from "../core/summary.ts";
+import {
+  register, login, createSession, getSession, destroySession,
+  parseCookies, SESSION_COOKIE,
+} from "./auth.ts";
 
 const PORT = Number(process.env.PORT) || 8787;
 const PUBLIC_DIR = resolve("app-node/public");
 const UPLOAD_DIR = resolve("data/uploads");
+
+function journalPathFor(userId: string): string {
+  return resolve("data/journal", userId, "entries.json");
+}
 
 // ---- inference serialization ------------------------------------------------
 // Models load/unload per call and the worker handles one job at a time, so run
@@ -51,32 +60,26 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
-function sendJSON(res: ServerResponse, status: number, data: unknown) {
+function sendJSON(res: ServerResponse, status: number, data: unknown, extraHeaders: Record<string, string> = {}) {
   const body = JSON.stringify(data);
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+  res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...extraHeaders });
   res.end(body);
 }
 
 // NDJSON stream: returns a writer that emits {type,...} objects, one per line.
 function ndjson(res: ServerResponse) {
-  res.writeHead(200, {
-    "content-type": "application/x-ndjson; charset=utf-8",
-    "cache-control": "no-cache",
-  });
+  res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
   return {
-    send(obj: unknown) {
-      res.write(JSON.stringify(obj) + "\n");
-    },
-    end() {
-      res.end();
-    },
+    send(obj: unknown) { res.write(JSON.stringify(obj) + "\n"); },
+    end() { res.end(); },
   };
 }
 
+// User-facing progress: deliberately vague about the machinery underneath.
 function friendlyProgress(p: unknown): string | null {
   if (p && typeof p === "object" && "percentage" in p) {
     const pct = Number((p as { percentage: unknown }).percentage);
-    if (Number.isFinite(pct)) return `Downloading model… ${pct.toFixed(0)}%`;
+    if (Number.isFinite(pct)) return `Warming up… ${pct.toFixed(0)}%`;
   }
   return null;
 }
@@ -87,6 +90,17 @@ function saveUpload(buf: Buffer, filename: string): string {
   const path = join(UPLOAD_DIR, `${randomUUID()}${ext}`);
   writeFileSync(path, buf);
   return path;
+}
+
+function cookieFor(token: string): string {
+  return `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`;
+}
+function clearCookie(): string {
+  return `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
+}
+function currentUser(req: IncomingMessage) {
+  const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+  return getSession(token);
 }
 
 // ---- static files -----------------------------------------------------------
@@ -106,18 +120,37 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-// ---- API handlers -----------------------------------------------------------
-async function handleJournal(res: ServerResponse) {
-  sendJSON(res, 200, { entries: getEntries() });
+// ---- auth handlers ----------------------------------------------------------
+async function handleAuth(req: IncomingMessage, res: ServerResponse, mode: "register" | "login") {
+  const body = await readBody(req);
+  let username = "", password = "";
+  try { const j = JSON.parse(body.toString("utf8")); username = j.username || ""; password = j.password || ""; } catch {}
+  const result = (mode === "register" ? register : login)(username, password);
+  if (!result.ok || !result.account) return sendJSON(res, 400, { error: result.error });
+  const token = createSession(result.account);
+  sendJSON(res, 200, { user: { username: result.account.username } }, { "set-cookie": cookieFor(token) });
 }
 
-async function handleTranscribe(req: IncomingMessage, res: ServerResponse) {
+function handleLogout(req: IncomingMessage, res: ServerResponse) {
+  destroySession(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+  sendJSON(res, 200, { ok: true }, { "set-cookie": clearCookie() });
+}
+
+// ---- data handlers (require a session) --------------------------------------
+function handleJournal(res: ServerResponse, userId: string) {
+  sendJSON(res, 200, { entries: getEntries(journalPathFor(userId)) });
+}
+
+async function handleTranscribe(req: IncomingMessage, res: ServerResponse, userId: string) {
   const filename = String(req.headers["x-filename"] || "recording.wav");
   const buf = await readBody(req);
   if (buf.length === 0) return sendJSON(res, 400, { error: "Empty audio upload." });
   const path = saveUpload(buf, filename);
   try {
-    const entry = await runExclusive(() => transcribeToJournal(path));
+    const entry = await runExclusive(async () => {
+      const text = await transcribeFile(path);
+      return addEntry({ type: "voice", text, source: path }, journalPathFor(userId));
+    });
     sendJSON(res, 200, { entry });
   } catch (err) {
     sendJSON(res, 500, { error: (err as Error).message });
@@ -156,14 +189,14 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
-      out.send({ type: "status", text: "Reading the image (OCR)…" });
+      out.send({ type: "status", text: "Reading your document…" });
       const text = await extractText(path, {
         onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
       });
       out.send({ type: "ocr", text });
       if (!text.trim()) { out.send({ type: "error", message: "No text found in the image." }); return; }
 
-      out.send({ type: "status", text: "Explaining the result…" });
+      out.send({ type: "status", text: "Thinking…" });
       const { citations } = await ragAnswer(text, {
         onToken: (t) => out.send({ type: "token", text: t }),
         onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
@@ -178,11 +211,12 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-async function handleSummary(res: ServerResponse) {
+async function handleSummary(res: ServerResponse, userId: string) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
       await summarize({
+        journalPath: journalPathFor(userId),
         onToken: (t) => out.send({ type: "token", text: t }),
         onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
       });
@@ -199,7 +233,7 @@ async function handleRagIngest(res: ServerResponse) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
-      out.send({ type: "status", text: "Preparing the reference glossary…" });
+      out.send({ type: "status", text: "Getting things ready…" });
       const n = await ragIngest({
         onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
       });
@@ -216,14 +250,31 @@ async function handleRagIngest(res: ServerResponse) {
 // ---- routing ----------------------------------------------------------------
 const server = createServer(async (req, res) => {
   const url = (req.url || "/").split("?")[0];
+  const method = req.method || "GET";
   try {
-    if (req.method === "GET" && url === "/api/journal") return await handleJournal(res);
-    if (req.method === "POST" && url === "/api/transcribe") return await handleTranscribe(req, res);
-    if (req.method === "POST" && url === "/api/ask") return await handleAsk(req, res);
-    if (req.method === "POST" && url === "/api/document") return await handleDocument(req, res);
-    if (req.method === "POST" && url === "/api/summary") return await handleSummary(res);
-    if (req.method === "POST" && url === "/api/rag/ingest") return await handleRagIngest(res);
-    if (req.method === "GET") return await serveStatic(req, res);
+    // public auth routes
+    if (method === "POST" && url === "/api/register") return await handleAuth(req, res, "register");
+    if (method === "POST" && url === "/api/login") return await handleAuth(req, res, "login");
+    if (method === "POST" && url === "/api/logout") return handleLogout(req, res);
+    if (method === "GET" && url === "/api/me") {
+      const u = currentUser(req);
+      return sendJSON(res, 200, { user: u ? { username: u.username } : null });
+    }
+
+    // protected data routes
+    if (url.startsWith("/api/")) {
+      const user = currentUser(req);
+      if (!user) return sendJSON(res, 401, { error: "Please sign in." });
+      if (method === "GET" && url === "/api/journal") return handleJournal(res, user.userId);
+      if (method === "POST" && url === "/api/transcribe") return await handleTranscribe(req, res, user.userId);
+      if (method === "POST" && url === "/api/ask") return await handleAsk(req, res);
+      if (method === "POST" && url === "/api/document") return await handleDocument(req, res);
+      if (method === "POST" && url === "/api/summary") return await handleSummary(res, user.userId);
+      if (method === "POST" && url === "/api/rag/ingest") return await handleRagIngest(res);
+      res.writeHead(404); res.end("Not found"); return;
+    }
+
+    if (method === "GET") return await serveStatic(req, res);
     res.writeHead(404); res.end("Not found");
   } catch (err) {
     if (!res.headersSent) sendJSON(res, 500, { error: (err as Error).message });
@@ -233,5 +284,4 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n  VitalLog UI running — open  http://localhost:${PORT}\n`);
-  console.log("  All inference runs locally via @qvac/sdk. Nothing leaves this machine.\n");
 });
