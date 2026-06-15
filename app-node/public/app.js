@@ -15,6 +15,32 @@ function errorBox(msg) {
 function infoBox(msg) {
   return `<div class="alert alert-info" style="margin-top:var(--s-3)"><svg><use href="#i-shield"/></svg><div>${esc(msg)}</div></div>`;
 }
+
+// Strip markdown markers so the explanation reads as clean prose (no asterisks/headings).
+function cleanText(s) {
+  return s
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .replace(/__/g, "")
+    .replace(/`/g, "")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "");
+}
+
+// Animated loading status: a counter that climbs 0 -> 96% while a stage runs, snaps
+// to 100% when finished. The label can change between stages (e.g. extracting -> generating).
+function makeProgress(el) {
+  let timer = null, val = 0, label = "";
+  const render = () => {
+    el.innerHTML = `<div class="status"><span class="spinner"></span>${esc(label)} <span class="pct">${Math.round(val)}%</span></div>`;
+  };
+  return {
+    start(l) { label = l; val = 0; clearInterval(timer); render(); timer = setInterval(() => { val += Math.max(0.5, (96 - val) * 0.04); if (val > 96) val = 96; render(); }, 160); },
+    label(l) { label = l; render(); },
+    finish() { clearInterval(timer); timer = null; val = 100; render(); },
+    clear() { clearInterval(timer); timer = null; el.innerHTML = ""; },
+  };
+}
+
 // ---- NDJSON streaming reader ----
 async function streamPost(url, { body, headers } = {}, onEvent) {
   const res = await fetch(url, { method: "POST", headers, body });
@@ -189,52 +215,88 @@ recBtn.addEventListener("click", async () => {
 const docDrop = $("#docDrop");
 const docInput = $("#docInput");
 const docPreview = $("#docPreview");
+const docActions = $("#docActions");
 const docRun = $("#docRun");
+const docDone = $("#docDone");
+const docReset = $("#docReset");
 const docStatus = $("#docStatus");
 let docFile = null;
 
-function setDocFile(f) {
-  docFile = f;
-  docRun.disabled = !f;
-  if (f) {
-    const url = URL.createObjectURL(f);
-    docPreview.src = url; docPreview.hidden = false;
-  }
+// state: "empty" (dropzone) | "ready" (image chosen) | "done" (explained)
+function setDocState(state) {
+  docDrop.hidden = state !== "empty";
+  docPreview.hidden = state === "empty";
+  docActions.hidden = state === "empty";
+  docRun.hidden = state === "done";
+  docDone.hidden = state !== "done";
+  // docReset visible in ready + done
 }
+
+function chooseDoc(f) {
+  docFile = f;
+  docPreview.src = URL.createObjectURL(f);
+  $("#docResult").hidden = true;
+  $("#docExplain").textContent = "";
+  docStatus.innerHTML = "";
+  setDocState("ready");
+}
+
+function resetDoc() {
+  docFile = null;
+  docInput.value = "";
+  docPreview.removeAttribute("src");
+  $("#docResult").hidden = true;
+  $("#docExplain").textContent = "";
+  docStatus.innerHTML = "";
+  setDocState("empty");
+}
+
 docDrop.addEventListener("click", () => docInput.click());
 docDrop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") docInput.click(); });
-docInput.addEventListener("change", (e) => { if (e.target.files[0]) setDocFile(e.target.files[0]); });
+docInput.addEventListener("change", (e) => { if (e.target.files[0]) chooseDoc(e.target.files[0]); });
 ["dragover", "dragenter"].forEach((ev) =>
   docDrop.addEventListener(ev, (e) => { e.preventDefault(); docDrop.classList.add("drag"); })
 );
 ["dragleave", "drop"].forEach((ev) =>
   docDrop.addEventListener(ev, (e) => { e.preventDefault(); docDrop.classList.remove("drag"); })
 );
-docDrop.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) setDocFile(e.dataTransfer.files[0]); });
+docDrop.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) chooseDoc(e.dataTransfer.files[0]); });
+docReset.addEventListener("click", resetDoc);
 
 docRun.addEventListener("click", async () => {
   if (!docFile) return;
   docRun.disabled = true;
-  docStatus.innerHTML = spinner("Extracting text…");
+  docReset.disabled = true;
   $("#docResult").hidden = true;
   $("#docExplain").textContent = "";
+  const prog = makeProgress(docStatus);
+  prog.start("Extracting text…");
+  let buf = "";
+  let streaming = false;
   try {
     await streamPost(
       "/api/document",
       { body: docFile, headers: { "x-filename": docFile.name, "content-type": "application/octet-stream" } },
       (ev) => {
-        if (ev.type === "status") docStatus.innerHTML = spinner(ev.text);
-        else if (ev.type === "token") { $("#docResult").hidden = false; $("#docExplain").textContent += ev.text; }
-        else if (ev.type === "error") docStatus.innerHTML = errorBox(ev.message);
-        else if (ev.type === "done") docStatus.innerHTML = "";
+        if (ev.type === "status") prog.label(ev.text);
+        else if (ev.type === "token") {
+          if (!streaming) { streaming = true; prog.finish(); setTimeout(() => prog.clear(), 400); $("#docResult").hidden = false; }
+          buf += ev.text; $("#docExplain").textContent = cleanText(buf);
+        }
+        else if (ev.type === "error") { prog.clear(); docStatus.innerHTML = errorBox(ev.message); }
+        else if (ev.type === "done") { prog.clear(); if (streaming) setDocState("done"); }
       }
     );
   } catch (err) {
+    prog.clear();
     docStatus.innerHTML = errorBox(err.message);
   } finally {
     docRun.disabled = false;
+    docReset.disabled = false;
   }
 });
+
+resetDoc();
 
 // ====================================================================
 // ASK
@@ -244,17 +306,23 @@ askRun.addEventListener("click", async () => {
   const q = $("#askInput").value.trim();
   if (!q) return;
   askRun.disabled = true;
-  $("#askStatus").innerHTML = spinner("Generating explanation…");
   $("#askResult").hidden = false;
   $("#askAnswer").textContent = "";
+  const prog = makeProgress($("#askStatus"));
+  prog.start("Generating explanation…");
+  let buf = "", streaming = false;
   try {
     await streamPost("/api/ask", { body: JSON.stringify({ question: q }), headers: { "content-type": "application/json" } }, (ev) => {
-      if (ev.type === "status") $("#askStatus").innerHTML = spinner(ev.text);
-      else if (ev.type === "token") $("#askAnswer").textContent += ev.text;
-      else if (ev.type === "error") $("#askStatus").innerHTML = errorBox(ev.message);
-      else if (ev.type === "done") $("#askStatus").innerHTML = "";
+      if (ev.type === "status") prog.label(ev.text);
+      else if (ev.type === "token") {
+        if (!streaming) { streaming = true; prog.finish(); setTimeout(() => prog.clear(), 400); }
+        buf += ev.text; $("#askAnswer").textContent = cleanText(buf);
+      }
+      else if (ev.type === "error") { prog.clear(); $("#askStatus").innerHTML = errorBox(ev.message); }
+      else if (ev.type === "done") prog.clear();
     });
   } catch (err) {
+    prog.clear();
     $("#askStatus").innerHTML = errorBox(err.message);
   } finally {
     askRun.disabled = false;
@@ -269,17 +337,23 @@ const sumPrint = $("#sumPrint");
 sumRun.addEventListener("click", async () => {
   sumRun.disabled = true;
   sumPrint.disabled = true;
-  $("#sumStatus").innerHTML = spinner("Cooking up your summary…");
   $("#sumResult").hidden = false;
   $("#sumReport").textContent = "";
+  const prog = makeProgress($("#sumStatus"));
+  prog.start("Building your summary…");
+  let buf = "", streaming = false;
   try {
     await streamPost("/api/summary", {}, (ev) => {
-      if (ev.type === "status") $("#sumStatus").innerHTML = spinner(ev.text);
-      else if (ev.type === "token") $("#sumReport").textContent += ev.text;
-      else if (ev.type === "error") $("#sumStatus").innerHTML = errorBox(ev.message);
-      else if (ev.type === "done") { $("#sumStatus").innerHTML = ""; sumPrint.disabled = false; }
+      if (ev.type === "status") prog.label(ev.text);
+      else if (ev.type === "token") {
+        if (!streaming) { streaming = true; prog.finish(); setTimeout(() => prog.clear(), 400); }
+        buf += ev.text; $("#sumReport").textContent = cleanText(buf);
+      }
+      else if (ev.type === "error") { prog.clear(); $("#sumStatus").innerHTML = errorBox(ev.message); }
+      else if (ev.type === "done") { prog.clear(); sumPrint.disabled = false; }
     });
   } catch (err) {
+    prog.clear();
     $("#sumStatus").innerHTML = errorBox(err.message);
   } finally {
     sumRun.disabled = false;

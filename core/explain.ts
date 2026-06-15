@@ -34,6 +34,8 @@ export interface ExplainOptions {
   onToken?: (token: string) => void;
   /** Report model download progress on first run. */
   onProgress?: (progress: unknown) => void;
+  /** Extra task-specific instruction appended to the system prompt (e.g. focus only on test results). */
+  guidance?: string;
 }
 
 /**
@@ -63,8 +65,14 @@ export async function explain(
   });
 
   try {
+    const system =
+      GUARDRAIL_SYSTEM_PROMPT +
+      "\n\nWrite in plain, refined prose. Do NOT use markdown, asterisks (*), bold, " +
+      "bullet characters, or section headings — just clear sentences." +
+      (options.guidance ? `\n\n${options.guidance}` : "");
+
     const history = [
-      { role: "system", content: GUARDRAIL_SYSTEM_PROMPT },
+      { role: "system", content: system },
       {
         role: "user",
         content: `Explain the following in plain language:\n\n${input}`,

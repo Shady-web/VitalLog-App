@@ -112,8 +112,10 @@
           </div>
           <input type="file" id="docInput" accept="image/*" hidden />
           <img id="docPreview" class="preview-img" alt="" hidden />
-          <div class="btn-row" style="margin-top:var(--s-4)">
-            <button class="btn btn-primary" id="docRun" disabled><svg><use href="#i-doc"/></svg> Read &amp; explain</button>
+          <div class="btn-row" id="docActions" style="margin-top:var(--s-4)" hidden>
+            <button class="btn btn-primary" id="docRun"><svg><use href="#i-doc"/></svg> Read &amp; explain</button>
+            <span class="done-label" id="docDone" hidden><svg><use href="#i-shield"/></svg> Here's the explanation</span>
+            <button class="btn btn-ghost" id="docReset"><svg><use href="#i-upload"/></svg> Add new image</button>
           </div>
           <div id="docStatus"></div>
         </div>
@@ -127,7 +129,7 @@
       <section class="screen" id="screen-ask">
         <div class="screen-head">
           <h2>Ask</h2>
-          <p>Ask what a term or result means. Answers are grounded in a bundled reference and cite their source.</p>
+          <p>Ask what a term or result means. Answers are grounded in a bundled medical reference.</p>
         </div>
         <div class="card">
           <textarea class="field" id="askInput" placeholder="e.g. What does LDL cholesterol mean, and is 162 high?"></textarea>

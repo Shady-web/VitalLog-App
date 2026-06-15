@@ -274,8 +274,18 @@ textarea.field { min-height: 96px; line-height: 1.45; }
 .citation .term { font-weight: var(--w-medium); color: var(--forest); }
 .citation .score { margin-left: auto; color: var(--text-faint); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
 
+/* ---- done label (after a document is explained) ---- */
+.done-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: var(--r-pill);
+  background: var(--lime); color: var(--forest);
+  font-size: var(--fs-sm); font-weight: var(--w-medium);
+}
+.done-label svg { width: 16px; height: 16px; }
+
 /* ---- status / spinner ---- */
 .status { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: var(--fs-sm); margin-top: var(--s-3); }
+.status .pct { font-variant-numeric: tabular-nums; font-weight: var(--w-medium); color: var(--forest); }
 .spinner {
   width: 16px; height: 16px; flex: none;
   border: 2px solid rgba(28, 58, 19, 0.2); border-top-color: var(--forest);

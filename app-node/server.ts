@@ -76,21 +76,19 @@ function ndjson(res: ServerResponse) {
   };
 }
 
-// Stage-aware progress: report the current stage, with a download % when a model
-// is being fetched on first run, e.g. "Generating explanation… 42%".
-function pctOf(p: unknown): number | null {
-  if (p && typeof p === "object" && "percentage" in p) {
-    const pct = Number((p as { percentage: unknown }).percentage);
-    if (Number.isFinite(pct)) return Math.round(pct);
-  }
-  return null;
-}
+// Re-send the current stage label as work progresses. The client owns the animated
+// 0→100 counter, so we only need to tell it which stage we're in.
 function stageProgress(out: { send: (o: unknown) => void }, label: string) {
-  return (p: unknown) => {
-    const pct = pctOf(p);
-    out.send({ type: "status", text: pct == null ? label : `${label} ${pct}%` });
-  };
+  return () => out.send({ type: "status", text: label });
 }
+
+// Documents: explain only the medical test results, in clean prose.
+const DOCUMENT_GUIDANCE =
+  "This text was extracted from a lab report or medication label. Explain ONLY the " +
+  "medical test results and what each value means for the person (including whether it " +
+  "is within, above, or below its reference range). Do NOT mention or describe the " +
+  "laboratory's name, address, phone number, email, the patient's name, ID, age, gender, " +
+  "or any dates — those do not matter. Focus entirely on the results.";
 
 function saveUpload(buf: Buffer, filename: string): string {
   mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -202,9 +200,10 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
       const text = await extractText(path, { onProgress: stageProgress(out, "Extracting text…") });
       if (!text.trim()) { out.send({ type: "error", message: "Couldn't read any text from that image." }); return; }
 
-      // Explain the document in plain language (no citations, no jargon).
+      // Explain the test results in plain language (no citations, no jargon).
       out.send({ type: "status", text: "Generating explanation…" });
       await explain(text, {
+        guidance: DOCUMENT_GUIDANCE,
         onToken: (t) => out.send({ type: "token", text: t }),
         onProgress: stageProgress(out, "Generating explanation…"),
       });
