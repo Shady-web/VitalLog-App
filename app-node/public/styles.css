@@ -59,6 +59,9 @@
 }
 
 * { box-sizing: border-box; }
+/* The HTML `hidden` attribute must win over component display rules
+   (e.g. .app/.auth set display:flex) — used to toggle login vs app. */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
