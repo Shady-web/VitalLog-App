@@ -9,18 +9,16 @@
 //   unloadModel({ modelId, clearStorage: false })
 // The CRAFT text detector (OCR_CRAFT_DETECTOR) is selected automatically by the
 // onnx-ocr plugin when modelSrc is a registry recognizer, so we don't pass it explicitly.
-import {
-  loadModel,
-  OCR_LATIN_RECOGNIZER_1,
-  ocr as runOcr,
-  unloadModel,
-} from "@qvac/sdk";
+import { ocr as runOcr } from "@qvac/sdk";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { withModel } from "./models.ts";
 
 export interface OcrOptions {
   /** Report model download progress on first run. */
   onProgress?: (progress: unknown) => void;
+  /** Reuse this already-loaded OCR id (warm pool) instead of loading/unloading. */
+  modelId?: string;
 }
 
 /**
@@ -38,19 +36,7 @@ export async function extractText(
     throw new Error(`extractText(): image file not found: ${absPath}`);
   }
 
-  const modelId = await loadModel({
-    modelSrc: OCR_LATIN_RECOGNIZER_1,
-    modelType: "ocr",
-    modelConfig: {
-      langList: ["en"],
-      // CPU-only target (no GPU on the dev laptop); ONNX runs on CPU.
-      useGPU: false,
-      recognizerBatchSize: 1,
-    },
-    onProgress: options.onProgress,
-  });
-
-  try {
+  return withModel("ocr", options.modelId, options.onProgress, async (modelId) => {
     const { blocks } = runOcr({
       modelId,
       image: absPath,
@@ -61,7 +47,5 @@ export async function extractText(
       .map((b) => b.text)
       .join("\n")
       .trim();
-  } finally {
-    await unloadModel({ modelId, clearStorage: false });
-  }
+  });
 }

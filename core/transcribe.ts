@@ -7,14 +7,17 @@
 //   transcribe({ modelId, audioChunk }) -> Promise<string>   (full transcript)
 //   unloadModel({ modelId })
 // Supported audio inputs (SUPPORTED_AUDIO_FORMATS): .mp3 .m4a .ogg .wav .flac .aac .raw
-import { loadModel, WHISPER_EN_BASE_Q8_0, transcribe as runTranscribe, unloadModel } from "@qvac/sdk";
+import { transcribe as runTranscribe } from "@qvac/sdk";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { addEntry, type JournalEntry } from "./store.ts";
+import { withModel } from "./models.ts";
 
 export interface TranscribeOptions {
   /** Report model download progress on first run. */
   onProgress?: (progress: unknown) => void;
+  /** Reuse this already-loaded Whisper id (warm pool) instead of loading/unloading. */
+  modelId?: string;
 }
 
 /** Transcribe an audio file and return the transcript text (no storage side effect). */
@@ -27,24 +30,11 @@ export async function transcribeFile(
     throw new Error(`transcribeFile(): audio file not found: ${absPath}`);
   }
 
-  const modelId = await loadModel({
-    modelSrc: WHISPER_EN_BASE_Q8_0,
-    modelType: "whisper",
-    modelConfig: {
-      language: "en",
-      // CPU-only target (no GPU on the dev laptop).
-      contextParams: { use_gpu: false },
-    },
-    onProgress: options.onProgress,
-  });
-
-  try {
+  return withModel("whisper", options.modelId, options.onProgress, async (modelId) => {
     // Without `metadata: true`, transcribe resolves to the full transcript string.
     const transcript = await runTranscribe({ modelId, audioChunk: absPath });
     return transcript.trim();
-  } finally {
-    await unloadModel({ modelId });
-  }
+  });
 }
 
 /**

@@ -4,9 +4,10 @@
 // entries into a structured summary: symptom timeline, current medications, and
 // questions to ask the doctor. Reuses the guardrail prompt (no diagnosis/dosage).
 // Fully offline, SDK-only (completion is already verified in explain.ts/rag.ts).
-import { loadModel, unloadModel, completion, LLAMA_3_2_1B_INST_Q4_0 } from "@qvac/sdk";
+import { completion } from "@qvac/sdk";
 import { getEntries, type JournalEntry } from "./store.ts";
 import { GUARDRAIL_SYSTEM_PROMPT } from "./explain.ts";
+import { withModel } from "./models.ts";
 
 const DISCLAIMER = "This is general information, not medical advice.";
 
@@ -15,6 +16,8 @@ export interface SummaryOptions {
   onProgress?: (progress: unknown) => void;
   /** Read entries from this journal file instead of the default (used for per-user journals). */
   journalPath?: string;
+  /** Reuse this already-loaded LLM id (warm pool) instead of loading/unloading. */
+  modelId?: string;
 }
 
 function formatEntries(entries: JournalEntry[]): string {
@@ -54,14 +57,7 @@ export async function summarize(options: SummaryOptions = {}): Promise<string> {
     { role: "user", content: `Journal entries:\n${formatEntries(entries)}` },
   ];
 
-  const modelId = await loadModel({
-    modelSrc: LLAMA_3_2_1B_INST_Q4_0,
-    modelType: "llm",
-    modelConfig: { ctx_size: 4096 },
-    onProgress: options.onProgress,
-  });
-
-  try {
+  return withModel("llm", options.modelId, options.onProgress, async (modelId) => {
     const run = completion({
       modelId,
       history,
@@ -85,7 +81,5 @@ export async function summarize(options: SummaryOptions = {}): Promise<string> {
     }
 
     return text;
-  } finally {
-    await unloadModel({ modelId });
-  }
+  });
 }

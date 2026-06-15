@@ -19,6 +19,7 @@ import { extractText } from "../core/ocr.ts";
 import { explain } from "../core/explain.ts";
 import { answer as ragAnswer, ingest as ragIngest } from "../core/rag.ts";
 import { summarize } from "../core/summary.ts";
+import { getWarmModel, unloadAllWarm } from "../core/models.ts";
 import {
   register, login, createSession, getSession, destroySession,
   parseCookies, SESSION_COOKIE,
@@ -158,7 +159,8 @@ async function handleTranscribe(req: IncomingMessage, res: ServerResponse, userI
   const path = saveUpload(buf, filename);
   try {
     const entry = await runExclusive(async () => {
-      const text = await transcribeFile(path);
+      const whisperId = await getWarmModel("whisper");
+      const text = await transcribeFile(path, { modelId: whisperId });
       return addEntry({ type: "voice", text, source: path }, journalPathFor(userId));
     });
     sendJSON(res, 200, { entry });
@@ -177,9 +179,13 @@ async function handleAsk(req: IncomingMessage, res: ServerResponse) {
   try {
     await runExclusive(async () => {
       out.send({ type: "status", text: "Generating explanation…" });
+      const progress = stageProgress(out, "Generating explanation…");
+      const embedModelId = await getWarmModel("embeddings", progress);
+      const llmModelId = await getWarmModel("llm", progress);
       await ragAnswer(question, {
+        embedModelId,
+        llmModelId,
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: stageProgress(out, "Generating explanation…"),
       });
     });
     out.send({ type: "done" });
@@ -201,15 +207,17 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
     await runExclusive(async () => {
       // OCR runs in the background — the extracted text is not shown to the user.
       out.send({ type: "status", text: "Extracting text…" });
-      const text = await extractText(path, { onProgress: stageProgress(out, "Extracting text…") });
+      const ocrId = await getWarmModel("ocr", stageProgress(out, "Extracting text…"));
+      const text = await extractText(path, { modelId: ocrId });
       if (!text.trim()) { out.send({ type: "error", message: "Couldn't read any text from that image." }); return; }
 
       // Explain the test results in plain language (no citations, no jargon).
       out.send({ type: "status", text: "Generating explanation…" });
+      const llmId = await getWarmModel("llm", stageProgress(out, "Generating explanation…"));
       await explain(text, {
+        modelId: llmId,
         guidance: DOCUMENT_GUIDANCE,
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: stageProgress(out, "Generating explanation…"),
       });
     });
     out.send({ type: "done" });
@@ -225,10 +233,11 @@ async function handleSummary(res: ServerResponse, userId: string) {
   try {
     await runExclusive(async () => {
       out.send({ type: "status", text: "Building your summary…" });
+      const llmId = await getWarmModel("llm", stageProgress(out, "Building your summary…"));
       await summarize({
+        modelId: llmId,
         journalPath: journalPathFor(userId),
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: stageProgress(out, "Building your summary…"),
       });
     });
     out.send({ type: "done" });
@@ -244,7 +253,8 @@ async function handleRagIngest(res: ServerResponse) {
   try {
     await runExclusive(async () => {
       out.send({ type: "status", text: "Getting things ready…" });
-      const n = await ragIngest({ onProgress: stageProgress(out, "Getting things ready…") });
+      const embedModelId = await getWarmModel("embeddings", stageProgress(out, "Getting things ready…"));
+      const n = await ragIngest({ embedModelId });
       out.send({ type: "ingested", count: n });
     });
     out.send({ type: "done" });
@@ -293,3 +303,14 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`\n  VitalLog UI running — open  http://localhost:${PORT}\n`);
 });
+
+// On Ctrl+C, unload the warm models so the inference worker shuts down cleanly.
+let shuttingDown = false;
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, async () => {
+    if (shuttingDown) process.exit(0);
+    shuttingDown = true;
+    try { await unloadAllWarm(); } catch { /* best effort */ }
+    process.exit(0);
+  });
+}

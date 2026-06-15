@@ -11,14 +11,7 @@
 //   loadModel({ modelSrc: EMBEDDINGGEMMA_300M_Q4_0, modelType: "embeddings" })
 //   embed({ modelId, text }) -> { embedding: number[] }
 //   completion({ modelId, history, stream }) -> CompletionRun (used for the grounded answer)
-import {
-  loadModel,
-  unloadModel,
-  embed,
-  completion,
-  EMBEDDINGGEMMA_300M_Q4_0,
-  LLAMA_3_2_1B_INST_Q4_0,
-} from "@qvac/sdk";
+import { embed, completion } from "@qvac/sdk";
 import {
   existsSync,
   mkdirSync,
@@ -27,6 +20,7 @@ import {
   readdirSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { withModel } from "./models.ts";
 import { GUARDRAIL_SYSTEM_PROMPT } from "./explain.ts";
 
 const REFERENCE_DIR = resolve("data/reference");
@@ -66,6 +60,14 @@ export interface RagAnswer {
 
 export interface RagOptions {
   onProgress?: (progress: unknown) => void;
+  /** Reuse this already-loaded embedding model id (warm pool). */
+  embedModelId?: string;
+}
+
+export interface RagAnswerOptions extends RagOptions {
+  onToken?: (t: string) => void;
+  /** Reuse this already-loaded LLM id (warm pool). */
+  llmModelId?: string;
 }
 
 // --- glossary parsing -------------------------------------------------------
@@ -135,13 +137,7 @@ export async function ingest(options: RagOptions = {}): Promise<number> {
     throw new Error(`no reference entries found in ${REFERENCE_DIR}`);
   }
 
-  const modelId = await loadModel({
-    modelSrc: EMBEDDINGGEMMA_300M_Q4_0,
-    modelType: "embeddings",
-    onProgress: options.onProgress,
-  });
-
-  try {
+  return withModel("embeddings", options.embedModelId, options.onProgress, async (modelId) => {
     const embedded: EmbeddedEntry[] = [];
     for (const entry of entries) {
       // Embed the term + text so the heading contributes to retrieval.
@@ -156,9 +152,7 @@ export async function ingest(options: RagOptions = {}): Promise<number> {
     mkdirSync(dirname(EMBEDDINGS_PATH), { recursive: true });
     writeFileSync(EMBEDDINGS_PATH, JSON.stringify(store), "utf8");
     return embedded.length;
-  } finally {
-    await unloadModel({ modelId });
-  }
+  });
 }
 
 // --- answer -----------------------------------------------------------------
@@ -181,7 +175,7 @@ function loadStore(): EmbeddingsStore {
  */
 export async function answer(
   query: string,
-  options: RagOptions & { onToken?: (t: string) => void } = {},
+  options: RagAnswerOptions = {},
 ): Promise<RagAnswer> {
   const question = query.trim();
   if (!question) throw new Error("answer(): query is empty.");
@@ -189,18 +183,10 @@ export async function answer(
   const store = loadStore();
 
   // 1. Embed the query with the same model used at ingest time.
-  const embedModelId = await loadModel({
-    modelSrc: EMBEDDINGGEMMA_300M_Q4_0,
-    modelType: "embeddings",
-    onProgress: options.onProgress,
+  const queryVec = await withModel("embeddings", options.embedModelId, options.onProgress, async (embId) => {
+    const { embedding } = await embed({ modelId: embId, text: question });
+    return embedding;
   });
-  let queryVec: number[];
-  try {
-    const { embedding } = await embed({ modelId: embedModelId, text: question });
-    queryVec = embedding;
-  } finally {
-    await unloadModel({ modelId: embedModelId });
-  }
 
   // 2. Rank entries by cosine similarity, take the top-k.
   const ranked = store.entries
@@ -237,14 +223,7 @@ export async function answer(
   ];
 
   // 4. Generate the grounded answer.
-  const llmId = await loadModel({
-    modelSrc: LLAMA_3_2_1B_INST_Q4_0,
-    modelType: "llm",
-    modelConfig: { ctx_size: 4096 },
-    onProgress: options.onProgress,
-  });
-
-  try {
+  return withModel("llm", options.llmModelId, options.onProgress, async (llmId) => {
     const run = completion({
       modelId: llmId,
       history,
@@ -268,7 +247,5 @@ export async function answer(
     }
 
     return { answer: text, citations };
-  } finally {
-    await unloadModel({ modelId: llmId });
-  }
+  });
 }

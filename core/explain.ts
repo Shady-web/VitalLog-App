@@ -8,12 +8,8 @@
 //   loadModel({ modelSrc, modelType, onProgress? }) -> Promise<string> (modelId)
 //   completion({ modelId, history, stream }) -> CompletionRun ({ text, tokenStream, events, final })
 //   unloadModel({ modelId }) -> Promise<void>
-import {
-  loadModel,
-  LLAMA_3_2_1B_INST_Q4_0,
-  completion,
-  unloadModel,
-} from "@qvac/sdk";
+import { completion } from "@qvac/sdk";
+import { withModel } from "./models.ts";
 
 /**
  * Guardrail system prompt — copied verbatim from section 5 of the build plan.
@@ -36,6 +32,8 @@ export interface ExplainOptions {
   onProgress?: (progress: unknown) => void;
   /** Extra task-specific instruction appended to the system prompt (e.g. focus only on test results). */
   guidance?: string;
+  /** Reuse this already-loaded LLM id (warm pool) instead of loading/unloading. */
+  modelId?: string;
 }
 
 /**
@@ -54,31 +52,21 @@ export async function explain(
     throw new Error("explain(): input text is empty.");
   }
 
-  const modelId = await loadModel({
-    modelSrc: LLAMA_3_2_1B_INST_Q4_0,
-    modelType: "llm",
-    // Default ctx_size is 1024 tokens, which overflows once a full document
-    // (e.g. OCR'd lab text) plus the system prompt is in the prompt. 4096 gives
-    // ample room for the input, the guardrail prompt, and the explanation.
-    modelConfig: { ctx_size: 4096 },
-    onProgress: options.onProgress,
-  });
+  const system =
+    GUARDRAIL_SYSTEM_PROMPT +
+    "\n\nWrite in plain, refined prose. Do NOT use markdown, asterisks (*), bold, " +
+    "bullet characters, or section headings — just clear sentences." +
+    (options.guidance ? `\n\n${options.guidance}` : "");
 
-  try {
-    const system =
-      GUARDRAIL_SYSTEM_PROMPT +
-      "\n\nWrite in plain, refined prose. Do NOT use markdown, asterisks (*), bold, " +
-      "bullet characters, or section headings — just clear sentences." +
-      (options.guidance ? `\n\n${options.guidance}` : "");
+  const history = [
+    { role: "system", content: system },
+    {
+      role: "user",
+      content: `Explain the following in plain language:\n\n${input}`,
+    },
+  ];
 
-    const history = [
-      { role: "system", content: system },
-      {
-        role: "user",
-        content: `Explain the following in plain language:\n\n${input}`,
-      },
-    ];
-
+  return withModel("llm", options.modelId, options.onProgress, async (modelId) => {
     // Cap generation so prompt + output stays within the context window.
     const run = completion({
       modelId,
@@ -98,10 +86,9 @@ export async function explain(
     }
     answer = answer.trim();
 
-    // Guardrail backstop: the plan requires every output to END WITH the exact
-    // disclaimer. Models often paraphrase it, so if the text doesn't already end
-    // with the canonical line, append it — and push it through onToken too, so a
-    // streaming consumer (the CLI) actually shows the enforced disclaimer.
+    // Guardrail backstop: every output must END WITH the exact disclaimer. Models
+    // often paraphrase it, so append the canonical line if missing — and push it
+    // through onToken too, so a streaming consumer (the CLI) shows it.
     if (!answer.endsWith(DISCLAIMER)) {
       const tail = `\n\n${DISCLAIMER}`;
       answer = `${answer}${tail}`;
@@ -109,7 +96,5 @@ export async function explain(
     }
 
     return answer;
-  } finally {
-    await unloadModel({ modelId });
-  }
+  });
 }
