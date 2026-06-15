@@ -15,19 +15,6 @@ function errorBox(msg) {
 function infoBox(msg) {
   return `<div class="alert alert-info" style="margin-top:var(--s-3)"><svg><use href="#i-shield"/></svg><div>${esc(msg)}</div></div>`;
 }
-function renderCitations(el, citations) {
-  if (!citations || !citations.length) { el.innerHTML = ""; return; }
-  el.innerHTML =
-    '<div class="section-label">Citations</div><div class="citations">' +
-    citations
-      .map(
-        (c) =>
-          `<div class="citation"><svg><use href="#i-quote"/></svg><span class="term">${esc(c.term)}</span><span class="score">similarity ${esc(c.score)}</span></div>`
-      )
-      .join("") +
-    "</div>";
-}
-
 // ---- NDJSON streaming reader ----
 async function streamPost(url, { body, headers } = {}, onEvent) {
   const res = await fetch(url, { method: "POST", headers, body });
@@ -228,20 +215,16 @@ docDrop.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) setDocFil
 docRun.addEventListener("click", async () => {
   if (!docFile) return;
   docRun.disabled = true;
-  docStatus.innerHTML = spinner("Thinking…");
+  docStatus.innerHTML = spinner("Extracting text…");
   $("#docResult").hidden = true;
-  $("#docOcr").textContent = "";
   $("#docExplain").textContent = "";
-  $("#docCitations").innerHTML = "";
   try {
     await streamPost(
       "/api/document",
       { body: docFile, headers: { "x-filename": docFile.name, "content-type": "application/octet-stream" } },
       (ev) => {
         if (ev.type === "status") docStatus.innerHTML = spinner(ev.text);
-        else if (ev.type === "ocr") { $("#docResult").hidden = false; $("#docOcr").textContent = ev.text || "(no text found)"; }
-        else if (ev.type === "token") $("#docExplain").textContent += ev.text;
-        else if (ev.type === "citations") renderCitations($("#docCitations"), ev.citations);
+        else if (ev.type === "token") { $("#docResult").hidden = false; $("#docExplain").textContent += ev.text; }
         else if (ev.type === "error") docStatus.innerHTML = errorBox(ev.message);
         else if (ev.type === "done") docStatus.innerHTML = "";
       }
@@ -261,15 +244,13 @@ askRun.addEventListener("click", async () => {
   const q = $("#askInput").value.trim();
   if (!q) return;
   askRun.disabled = true;
-  $("#askStatus").innerHTML = spinner("Thinking…");
+  $("#askStatus").innerHTML = spinner("Generating explanation…");
   $("#askResult").hidden = false;
   $("#askAnswer").textContent = "";
-  $("#askCitations").innerHTML = "";
   try {
     await streamPost("/api/ask", { body: JSON.stringify({ question: q }), headers: { "content-type": "application/json" } }, (ev) => {
       if (ev.type === "status") $("#askStatus").innerHTML = spinner(ev.text);
       else if (ev.type === "token") $("#askAnswer").textContent += ev.text;
-      else if (ev.type === "citations") renderCitations($("#askCitations"), ev.citations);
       else if (ev.type === "error") $("#askStatus").innerHTML = errorBox(ev.message);
       else if (ev.type === "done") $("#askStatus").innerHTML = "";
     });

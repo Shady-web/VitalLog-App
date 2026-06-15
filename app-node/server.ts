@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { getEntries, addEntry } from "../core/store.ts";
 import { transcribeFile } from "../core/transcribe.ts";
 import { extractText } from "../core/ocr.ts";
+import { explain } from "../core/explain.ts";
 import { answer as ragAnswer, ingest as ragIngest } from "../core/rag.ts";
 import { summarize } from "../core/summary.ts";
 import {
@@ -75,13 +76,20 @@ function ndjson(res: ServerResponse) {
   };
 }
 
-// User-facing progress: deliberately vague about the machinery underneath.
-function friendlyProgress(p: unknown): string | null {
+// Stage-aware progress: report the current stage, with a download % when a model
+// is being fetched on first run, e.g. "Generating explanation… 42%".
+function pctOf(p: unknown): number | null {
   if (p && typeof p === "object" && "percentage" in p) {
     const pct = Number((p as { percentage: unknown }).percentage);
-    if (Number.isFinite(pct)) return `Warming up… ${pct.toFixed(0)}%`;
+    if (Number.isFinite(pct)) return Math.round(pct);
   }
   return null;
+}
+function stageProgress(out: { send: (o: unknown) => void }, label: string) {
+  return (p: unknown) => {
+    const pct = pctOf(p);
+    out.send({ type: "status", text: pct == null ? label : `${label} ${pct}%` });
+  };
 }
 
 function saveUpload(buf: Buffer, filename: string): string {
@@ -166,11 +174,11 @@ async function handleAsk(req: IncomingMessage, res: ServerResponse) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
-      const { citations } = await ragAnswer(question, {
+      out.send({ type: "status", text: "Generating explanation…" });
+      await ragAnswer(question, {
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
+        onProgress: stageProgress(out, "Generating explanation…"),
       });
-      out.send({ type: "citations", citations });
     });
     out.send({ type: "done" });
   } catch (err) {
@@ -189,19 +197,17 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
-      out.send({ type: "status", text: "Reading your document…" });
-      const text = await extractText(path, {
-        onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
-      });
-      out.send({ type: "ocr", text });
-      if (!text.trim()) { out.send({ type: "error", message: "No text found in the image." }); return; }
+      // OCR runs in the background — the extracted text is not shown to the user.
+      out.send({ type: "status", text: "Extracting text…" });
+      const text = await extractText(path, { onProgress: stageProgress(out, "Extracting text…") });
+      if (!text.trim()) { out.send({ type: "error", message: "Couldn't read any text from that image." }); return; }
 
-      out.send({ type: "status", text: "Thinking…" });
-      const { citations } = await ragAnswer(text, {
+      // Explain the document in plain language (no citations, no jargon).
+      out.send({ type: "status", text: "Generating explanation…" });
+      await explain(text, {
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
+        onProgress: stageProgress(out, "Generating explanation…"),
       });
-      out.send({ type: "citations", citations });
     });
     out.send({ type: "done" });
   } catch (err) {
@@ -215,10 +221,11 @@ async function handleSummary(res: ServerResponse, userId: string) {
   const out = ndjson(res);
   try {
     await runExclusive(async () => {
+      out.send({ type: "status", text: "Building your summary…" });
       await summarize({
         journalPath: journalPathFor(userId),
         onToken: (t) => out.send({ type: "token", text: t }),
-        onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
+        onProgress: stageProgress(out, "Building your summary…"),
       });
     });
     out.send({ type: "done" });
@@ -234,9 +241,7 @@ async function handleRagIngest(res: ServerResponse) {
   try {
     await runExclusive(async () => {
       out.send({ type: "status", text: "Getting things ready…" });
-      const n = await ragIngest({
-        onProgress: (p) => { const m = friendlyProgress(p); if (m) out.send({ type: "status", text: m }); },
-      });
+      const n = await ragIngest({ onProgress: stageProgress(out, "Getting things ready…") });
       out.send({ type: "ingested", count: n });
     });
     out.send({ type: "done" });

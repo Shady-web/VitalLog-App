@@ -214,22 +214,25 @@ export async function answer(
     score: Number(r.score.toFixed(4)),
   }));
 
-  // 3. Build a grounded prompt: answer using ONLY the retrieved entries.
+  // 3. Build a grounded prompt. The reference notes are silent background — the
+  // model must answer in plain language without citing or naming them (the small
+  // model otherwise leaks "[1] / reference entry" scaffolding into the answer).
   const context = ranked
-    .map((r, i) => `[${i + 1}] ${r.entry.term}\n${r.entry.text}`)
+    .map((r) => `${r.entry.term}: ${r.entry.text}`)
     .join("\n\n");
 
   const system =
     GUARDRAIL_SYSTEM_PROMPT +
-    "\n\nAnswer the user's question using ONLY the numbered reference entries provided. " +
-    "Cite the entries you use by their number, like [1]. If the reference entries do not " +
-    "contain the answer, say you don't have that information and suggest asking a licensed professional.";
+    "\n\nYou are given reference notes about medical terms. Use them to keep your answer " +
+    "accurate, but write a clear, plain-language answer to the user's question. Do NOT mention " +
+    "these notes, do NOT use citation numbers or brackets like [1], and do NOT comment on which " +
+    "notes are or aren't relevant — just answer the question simply and directly.";
 
   const history = [
     { role: "system", content: system },
     {
       role: "user",
-      content: `Reference entries:\n${context}\n\nQuestion: ${question}`,
+      content: `Reference notes:\n${context}\n\nQuestion: ${question}`,
     },
   ];
 
