@@ -78,14 +78,32 @@ export function login(username: string, password: string): AuthResult {
   return { ok: true, account };
 }
 
-// ---- sessions (in-memory) ----
+// ---- sessions (persisted to disk so a server restart keeps users signed in) ----
 interface Session { userId: string; username: string; }
-const sessions = new Map<string, Session>();
+const SESSIONS_PATH = resolve("data/store/sessions.json");
 export const SESSION_COOKIE = "vl_session";
+
+function loadSessions(): Map<string, Session> {
+  if (!existsSync(SESSIONS_PATH)) return new Map();
+  try {
+    const obj = JSON.parse(readFileSync(SESSIONS_PATH, "utf8")) as Record<string, Session>;
+    return new Map(Object.entries(obj));
+  } catch {
+    return new Map();
+  }
+}
+
+const sessions = loadSessions();
+
+function saveSessions(): void {
+  mkdirSync(dirname(SESSIONS_PATH), { recursive: true });
+  writeFileSync(SESSIONS_PATH, JSON.stringify(Object.fromEntries(sessions)), "utf8");
+}
 
 export function createSession(account: Account): string {
   const token = randomBytes(24).toString("hex");
   sessions.set(token, { userId: account.id, username: account.username });
+  saveSessions();
   return token;
 }
 
@@ -95,7 +113,7 @@ export function getSession(token: string | undefined): Session | null {
 }
 
 export function destroySession(token: string | undefined): void {
-  if (token) sessions.delete(token);
+  if (token && sessions.delete(token)) saveSessions();
 }
 
 export function parseCookies(header: string | undefined): Record<string, string> {

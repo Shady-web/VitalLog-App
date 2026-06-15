@@ -12,6 +12,9 @@ function spinner(text) {
 function errorBox(msg) {
   return `<div class="alert alert-danger" style="margin-top:var(--s-3)"><svg><use href="#i-warn"/></svg><div>${esc(msg)}</div></div>`;
 }
+function infoBox(msg) {
+  return `<div class="alert alert-info" style="margin-top:var(--s-3)"><svg><use href="#i-shield"/></svg><div>${esc(msg)}</div></div>`;
+}
 function renderCitations(el, citations) {
   if (!citations || !citations.length) { el.innerHTML = ""; return; }
   el.innerHTML =
@@ -342,7 +345,20 @@ $("#authForm").addEventListener("submit", async (e) => {
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
-    if (!res.ok) { $("#authError").innerHTML = errorBox(data.error || "Something went wrong."); return; }
+    if (!res.ok) {
+      // Tried to create an account that already exists -> send them to sign-in
+      // with the username kept, instead of a dead-end "username taken" error.
+      if (authMode === "register" && /taken|exists/i.test(data.error || "")) {
+        setAuthMode("login");
+        $("#authUser").value = username;
+        $("#authPass").value = "";
+        $("#authPass").focus();
+        $("#authError").innerHTML = infoBox("You already have an account with that username. Enter your password to sign in.");
+      } else {
+        $("#authError").innerHTML = errorBox(data.error || "Something went wrong.");
+      }
+      return;
+    }
     enterApp(data.user);
   } catch (err) {
     $("#authError").innerHTML = errorBox(err.message);
