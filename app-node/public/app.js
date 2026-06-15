@@ -424,15 +424,25 @@ $("#authForm").addEventListener("submit", async (e) => {
 
 $("#logoutBtn").addEventListener("click", async () => {
   await fetch("/api/logout", { method: "POST" });
-  appView.hidden = true;
-  authView.hidden = false;
-  $("#authUser").value = "";
-  $("#authPass").value = "";
-  setAuthMode("login");
+  // Full reload guarantees no previous account's content lingers in the DOM.
+  location.reload();
 });
+
+// Clear all per-user screen content so nothing from a previous account is ever shown.
+function resetAppUI() {
+  document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.tab === "journal" ? "true" : "false"));
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  $("#screen-journal").classList.add("active");
+  journalList.innerHTML = "";
+  journalStatus.innerHTML = "";
+  $("#askInput").value = ""; $("#askAnswer").textContent = ""; $("#askResult").hidden = true; $("#askStatus").innerHTML = "";
+  $("#sumReport").textContent = ""; $("#sumResult").hidden = true; $("#sumStatus").innerHTML = ""; $("#sumPrint").disabled = true;
+  resetDoc();
+}
 
 function enterApp(user) {
   $("#userName").textContent = user.username;
+  resetAppUI();
   authView.hidden = true;
   appView.hidden = false;
   loadJournal();

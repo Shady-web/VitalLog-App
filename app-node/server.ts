@@ -82,13 +82,17 @@ function stageProgress(out: { send: (o: unknown) => void }, label: string) {
   return () => out.send({ type: "status", text: label });
 }
 
-// Documents: explain only the medical test results, in clean prose.
+// Documents: give a short, plain-language summary of what the results MEAN —
+// not a read-back of the numbers.
 const DOCUMENT_GUIDANCE =
-  "This text was extracted from a lab report or medication label. Explain ONLY the " +
-  "medical test results and what each value means for the person (including whether it " +
-  "is within, above, or below its reference range). Do NOT mention or describe the " +
-  "laboratory's name, address, phone number, email, the patient's name, ID, age, gender, " +
-  "or any dates — those do not matter. Focus entirely on the results.";
+  "This text was extracted from a lab report. Write a short, plain-language summary of what " +
+  "the results MEAN for the person — do NOT read back, list, or repeat the raw numbers, units, " +
+  "or reference ranges. For each notable result, say simply whether it is normal, high, or low " +
+  "and what that generally indicates, e.g. \"Your blood sugar is slightly above the normal range\" " +
+  "or \"Your cholesterol is in a healthy range.\" Focus on what stands out (anything flagged high " +
+  "or low) and you may note briefly that the rest looks normal. Keep it to a few simple sentences. " +
+  "Do NOT mention the laboratory, the patient's name, age, gender, IDs, or any dates. Finish by " +
+  "gently suggesting they discuss the results with their doctor.";
 
 function saveUpload(buf: Buffer, filename: string): string {
   mkdirSync(UPLOAD_DIR, { recursive: true });
