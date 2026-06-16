@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#fcfcf7",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "android": {
       "package": "io.vitallog.app",
       "edgeToEdgeEnabled": true
