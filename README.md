@@ -38,31 +38,83 @@ it to diagnose or recommend a dose and it declines and points you to a professio
 
 ## Quick start (desktop web app)
 
-Requires **Node.js 18+** (developed on 22/24). First run downloads the models once; after
-that it's fully offline.
+These steps take a clean machine (Windows, macOS, or Linux) from nothing to a running
+app. No prior setup assumed.
+
+### 1. Install the prerequisites
+
+- **Node.js 18 or newer** — download the **LTS** installer from
+  [nodejs.org](https://nodejs.org), run it, accept the defaults. This also installs `npm`.
+- **Git** (to download the code) — [git-scm.com/downloads](https://git-scm.com/downloads).
+  *Or* skip Git and download the project as a ZIP from the GitHub page (green **Code**
+  button → **Download ZIP**) and unzip it.
+
+### 2. Open a terminal
+
+- **Windows:** press Start, type **PowerShell**, open it.
+- **macOS:** open **Terminal** (Cmd+Space → "Terminal").
+- **Linux:** your usual terminal.
+
+Verify Node is installed (should print `v18` or higher):
+
+```bash
+node --version
+```
+
+### 3. Get the code
+
+```bash
+git clone https://github.com/Shady-web/VitalLog-App.git
+cd VitalLog-App
+```
+
+(If you downloaded the ZIP instead, just `cd` into the unzipped `VitalLog-App` folder.)
+
+### 4. Install dependencies
 
 ```bash
 npm install
+```
+
+This pulls `@qvac/sdk` (which ships a prebuilt native runtime — **no compiler or Android/
+Xcode tooling needed**) and the TypeScript tools. **On Windows, if this stalls or errors,
+see the [Windows note](#windows-note) below — it's a known Defender issue.**
+
+### 5. Start the app
+
+```bash
 npm run ui
 ```
 
-Then open **http://localhost:8787**, click **Create an account**, and you're in.
+Leave that terminal open (it's the local server). Then open **http://localhost:8787** in
+your browser, click **Create an account**, pick any username/password, and sign in. To
+stop the app later, press **Ctrl+C** in the terminal.
 
-> The first time you use each feature it downloads that model once (see
-> [Models](#models)); keep a network connection for that first run, then it works offline.
+### 6. First use (please read)
 
-### Windows note (important)
+- The **first time you use each feature**, it downloads that AI model once — the language
+  model is **~773 MB** (see [Models](#models)). **Keep an internet connection for this
+  first run.** After the models are cached, everything runs **fully offline** (airplane
+  mode).
+- Inference runs **on your CPU**, so the first response after a model loads can take
+  several seconds to a minute — that's expected, not a freeze (a progress counter shows).
+- **Try it first:** on the **Documents** screen, upload the bundled sample lab image at
+  `data/samples/sample-lab.png` or find a random lab test result in your gallery to turn a photo into a plain-language explanation.
+
+### <a name="windows-note"></a>Windows note (important)
 
 On Windows, **Windows Defender real-time scanning locks native binaries as npm writes
 them**, making `npm install` crawl and fail with `EIDLETIMEOUT` / `EPERM`. If install
-keeps timing out, add Defender exclusions (run PowerShell **as Administrator**):
+keeps timing out, add Defender exclusions — open PowerShell **as Administrator**
+(right-click → "Run as administrator") and run:
 
 ```powershell
 Add-MpPreference -ExclusionPath "C:\path\to\VitalLog-App"
 Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\npm-cache"
 ```
 
-Then re-run `npm install` — npm caches what it fetched, so re-running makes progress.
+Then re-run `npm install` in a normal terminal. npm caches what it already fetched, so
+re-running a few times on a slow connection keeps making progress until it completes.
 
 ### View it on your phone (same Wi-Fi)
 
