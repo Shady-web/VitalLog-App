@@ -103,12 +103,20 @@ function friendlyError(err: unknown): string {
   if (m.includes("request_timeout") || m.includes("host_not_allowed") || m.includes("download") || /\b403\b/.test(m)) {
     return "Couldn't download the AI model. The first use of each feature needs an internet connection to download its model once (after that it works offline). Check your connection and try again — the app's terminal window shows the details.";
   }
-  // On-device engine couldn't start — almost always an incomplete install.
+  // On-device engine couldn't start — missing VC++ runtime (Windows) or incomplete install.
   if (
     m.includes("rpc") || m.includes("worker") || m.includes("timed out") ||
-    m.includes("module_not_found") || m.includes("model_load_failed") || m.includes("@qvac")
+    m.includes("module_not_found") || m.includes("model_load_failed") || m.includes("@qvac") ||
+    m.includes("specified module") || m.includes("3221226505")
   ) {
-    return "The on-device AI engine couldn't start — usually an incomplete install. Open the terminal window running the app to see the real cause, then reinstall: delete the node_modules folder and run \"npm install\" again, letting it finish with no errors. See the Troubleshooting section in the README.";
+    return (
+      "The on-device AI engine couldn't start. On Windows this is usually a missing " +
+      "Microsoft Visual C++ Redistributable (x64) — install it from " +
+      "https://aka.ms/vs/17/release/vc_redist.x64.exe and REBOOT. Otherwise it's an " +
+      "incomplete install: delete the node_modules folder and run \"npm install\" again. " +
+      "The terminal window running the app shows the real cause; see the Troubleshooting " +
+      "section in the README."
+    );
   }
   return msg;
 }
