@@ -99,7 +99,7 @@ stop the app later, press **Ctrl+C** in the terminal.
 - Inference runs **on your CPU**, so the first response after a model loads can take
   several seconds to a minute — that's expected, not a freeze (a progress counter shows).
 - **Try it first:** on the **Documents** screen, upload the bundled sample lab image at
-  `data/samples/sample-lab.png` to turn a photo into a plain-language explanation.
+  `data/samples/sample-lab.png` or find a random lab test result in your gallery to turn a photo into a plain-language explanation.
 
 ### <a name="windows-note"></a>Windows note (important)
 
