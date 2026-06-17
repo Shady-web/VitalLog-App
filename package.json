@@ -13,7 +13,8 @@
     "rag": "tsx core/cli.ts rag",
     "summary": "tsx core/cli.ts summary",
     "ui": "tsx app-node/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-offline.mjs"
   },
   "repository": {
     "type": "git",

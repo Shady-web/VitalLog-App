@@ -85,6 +85,7 @@ npm run rag:ingest                                   # embed the glossary once
 npm run rag -- "What does LDL cholesterol mean?"     # grounded answer
 npm run summary                                      # doctor-ready one-pager
 npm run typecheck                                    # type-check core/ + app-node/
+npm run verify                                       # confirm no external/cloud calls (offline proof)
 ```
 
 On PowerShell, keep the space after `--` and quote paths.

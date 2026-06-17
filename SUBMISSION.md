@@ -20,13 +20,19 @@ Deadline: **June 22, 2026, 00:59 (GMT+8)** · Submit the BUIDL on the DoraHacks 
 
 ## Verification
 
-**All AI runs through `@qvac/sdk`, locally.** Every model call goes through `core/`,
-which only ever imports from `@qvac/sdk`:
+**All AI runs through `@qvac/sdk`, locally.** Run the bundled static check (good for the
+evidence bundle — capture its output):
 
 ```bash
-# No external AI SDKs / HTTP AI calls in the source:
-grep -rIn "openai\|anthropic\|googleapis\|api\.\|http" core/ app-node/*.ts | grep -vi "@qvac"
+npm run verify
 ```
+
+It confirms there are no external network/cloud-AI references in the source, that `core/`
+imports only `@qvac/sdk`, and that `@qvac/sdk` is the only runtime dependency. Expected
+result: **PASS**.
+
+Submission copy (tagline + description + QVAC usage) is ready to paste in
+`demo/PROJECT_DESCRIPTION.md`.
 
 The only network the app needs is the **one-time model download** per model; after that it
 runs with the network off (the demo records this in airplane mode). The web server binds
