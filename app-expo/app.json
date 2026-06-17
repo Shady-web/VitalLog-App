@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "VitalLog",
+    "slug": "vitallog-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#fcfcf7",
+    "newArchEnabled": false,
+    "android": {
+      "package": "io.vitallog.app",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "@qvac/sdk/expo-plugin"
+    ]
+  }
+}

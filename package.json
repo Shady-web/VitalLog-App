@@ -1,0 +1,31 @@
+{
+  "name": "vitallog-app",
+  "version": "0.1.0",
+  "description": "VitalLog: A Private, On-Device Health Journal & Explainer (Phase 1)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "quickstart": "node quickstart.mjs",
+    "explain": "tsx core/cli.ts explain",
+    "ocr": "tsx core/cli.ts ocr",
+    "transcribe": "tsx core/cli.ts transcribe",
+    "rag:ingest": "tsx core/cli.ts rag:ingest",
+    "rag": "tsx core/cli.ts rag",
+    "summary": "tsx core/cli.ts summary",
+    "ui": "tsx app-node/server.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-offline.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:40815/git/Shady-web/VitalLog-App"
+  },
+  "dependencies": {
+    "@qvac/sdk": "^0.12.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}
