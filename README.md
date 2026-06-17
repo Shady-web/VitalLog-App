@@ -48,6 +48,12 @@ app. No prior setup assumed.
 - **Git** (to download the code) — [git-scm.com/downloads](https://git-scm.com/downloads).
   *Or* skip Git and download the project as a ZIP from the GitHub page (green **Code**
   button → **Download ZIP**) and unzip it.
+- **Windows only — Microsoft Visual C++ Redistributable (x64).** QVAC's native AI engine
+  needs it; most Windows PCs already have it, but on a clean machine the app will fail to
+  start the AI worker without it. If you don't have it, install it from
+  [aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+  and **reboot**. (macOS/Linux need nothing extra.) Also note QVAC's engine is **x64** —
+  it does not run on Windows-on-ARM.
 
 ### 2. Open a terminal
 
@@ -210,19 +216,24 @@ fully-working build.
 The browser only shows a short error; the **terminal running `npm run ui` prints the real
 cause** (look for `[sdk:server]` lines). Check there first.
 
-- **"RPC initialization timed out… the worker process may have failed to start"** — the
-  on-device AI worker didn't start. Almost always an **incomplete `npm install`** (a large
-  `@qvac` native package didn't finish downloading). Fix:
-  ```bash
-  npm ls @qvac/llm-llamacpp     # should print a version; if "missing"/empty, the install is incomplete
-  # then reinstall cleanly:
-  #   Windows (PowerShell):  Remove-Item -Recurse -Force node_modules ; npm install
-  #   macOS/Linux:           rm -rf node_modules && npm install
-  ```
-  Watch the install finish with `added NNN packages` and **no** `npm error`. On Windows,
-  apply the [Defender exclusion](#windows-note) first, and an **antivirus** can also block
-  the worker — allow Node, or test with it briefly off. (A one-off retry sometimes clears
-  a transient timeout, too.)
+- **"RPC initialization timed out… the worker process may have failed to start"** (or the
+  terminal shows `The specified module could not be found` / `Bare worker exited … code=3221226505`)
+  — the on-device AI worker couldn't start. Two common causes:
+  1. **(Windows) Missing Visual C++ Redistributable.** QVAC's native engine fails to load
+     without it. Install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+     and **reboot**. Confirm the machine is **x64** (`node -p "process.arch"` should print
+     `x64`; QVAC's engine doesn't run on Windows-on-ARM).
+  2. **Incomplete `npm install`** (a large `@qvac` native package didn't finish). Fix:
+     ```bash
+     npm ls @qvac/llm-llamacpp     # should print a version; if "missing"/empty, reinstall
+     #   Windows (PowerShell):  Remove-Item -Recurse -Force node_modules ; npm install
+     #   macOS/Linux:           rm -rf node_modules && npm install
+     ```
+     Watch it finish with `added NNN packages` and **no** `npm error`; apply the
+     [Defender exclusion](#windows-note) first on Windows.
+
+  An **antivirus** can also block the worker (allow Node), and a one-off retry sometimes
+  clears a transient timeout.
 - **First click seems to hang / nothing happens** — on a feature's first use it's loading
   (and on the very first run, downloading) the model. CPU inference is slow; give it up to
   a minute. The status shows a progress counter.
