@@ -95,6 +95,24 @@ const DOCUMENT_GUIDANCE =
   "Do NOT mention the laboratory, the patient's name, age, gender, IDs, or any dates. Finish by " +
   "gently suggesting they discuss the results with their doctor.";
 
+// Map raw SDK errors to a clear, actionable message for the UI (testers see the cause).
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = msg.toLowerCase();
+  // Model couldn't be downloaded (first run needs network).
+  if (m.includes("request_timeout") || m.includes("host_not_allowed") || m.includes("download") || /\b403\b/.test(m)) {
+    return "Couldn't download the AI model. The first use of each feature needs an internet connection to download its model once (after that it works offline). Check your connection and try again — the app's terminal window shows the details.";
+  }
+  // On-device engine couldn't start — almost always an incomplete install.
+  if (
+    m.includes("rpc") || m.includes("worker") || m.includes("timed out") ||
+    m.includes("module_not_found") || m.includes("model_load_failed") || m.includes("@qvac")
+  ) {
+    return "The on-device AI engine couldn't start — usually an incomplete install. Open the terminal window running the app to see the real cause, then reinstall: delete the node_modules folder and run \"npm install\" again, letting it finish with no errors. See the Troubleshooting section in the README.";
+  }
+  return msg;
+}
+
 function saveUpload(buf: Buffer, filename: string): string {
   mkdirSync(UPLOAD_DIR, { recursive: true });
   const ext = extname(filename) || ".bin";
@@ -165,7 +183,7 @@ async function handleTranscribe(req: IncomingMessage, res: ServerResponse, userI
     });
     sendJSON(res, 200, { entry });
   } catch (err) {
-    sendJSON(res, 500, { error: (err as Error).message });
+    sendJSON(res, 500, { error: friendlyError(err) });
   }
 }
 
@@ -190,7 +208,7 @@ async function handleAsk(req: IncomingMessage, res: ServerResponse) {
     });
     out.send({ type: "done" });
   } catch (err) {
-    out.send({ type: "error", message: (err as Error).message });
+    out.send({ type: "error", message: friendlyError(err) });
   } finally {
     out.end();
   }
@@ -222,7 +240,7 @@ async function handleDocument(req: IncomingMessage, res: ServerResponse) {
     });
     out.send({ type: "done" });
   } catch (err) {
-    out.send({ type: "error", message: (err as Error).message });
+    out.send({ type: "error", message: friendlyError(err) });
   } finally {
     out.end();
   }
@@ -242,7 +260,7 @@ async function handleSummary(res: ServerResponse, userId: string) {
     });
     out.send({ type: "done" });
   } catch (err) {
-    out.send({ type: "error", message: (err as Error).message });
+    out.send({ type: "error", message: friendlyError(err) });
   } finally {
     out.end();
   }
@@ -259,7 +277,7 @@ async function handleRagIngest(res: ServerResponse) {
     });
     out.send({ type: "done" });
   } catch (err) {
-    out.send({ type: "error", message: (err as Error).message });
+    out.send({ type: "error", message: friendlyError(err) });
   } finally {
     out.end();
   }
@@ -295,7 +313,7 @@ const server = createServer(async (req, res) => {
     if (method === "GET") return await serveStatic(req, res);
     res.writeHead(404); res.end("Not found");
   } catch (err) {
-    if (!res.headersSent) sendJSON(res, 500, { error: (err as Error).message });
+    if (!res.headersSent) sendJSON(res, 500, { error: friendlyError(err) });
     else res.end();
   }
 });
