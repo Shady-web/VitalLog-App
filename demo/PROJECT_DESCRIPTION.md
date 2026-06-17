@@ -53,3 +53,16 @@ no external/cloud calls.
 ## Built for
 
 QVAC Hackathon I — Unleash Edge AI. The demo runs in airplane mode from start to finish.
+
+## Safety & scope (for the submission form)
+
+VitalLog is a journal and explainer, **not a diagnostic tool**. It never diagnoses
+conditions and never recommends treatments, medications, or dosages — asked to, it
+explicitly declines and directs the user to a licensed professional. Its answers are
+grounded in a small, bundled, license-clean medical glossary (original text based on
+public-domain U.S. National Library of Medicine / MedlinePlus facts) rather than the
+model's open-ended memory. A persistent "Not medical advice — consult a licensed
+professional" banner appears on every screen, and every model output ends with "This is
+general information, not medical advice." All processing happens on the user's own device;
+no health data is transmitted or stored in the cloud. This is local educational software,
+not a medical device, and not a substitute for professional medical care.
