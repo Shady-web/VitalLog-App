@@ -205,6 +205,38 @@ advice."* This is local demo software, not a medical device.
 the bring-up stage; see `app-expo/README.md`. The desktop app above is the primary,
 fully-working build.
 
+## Troubleshooting
+
+The browser only shows a short error; the **terminal running `npm run ui` prints the real
+cause** (look for `[sdk:server]` lines). Check there first.
+
+- **"RPC initialization timed out… the worker process may have failed to start"** — the
+  on-device AI worker didn't start. Almost always an **incomplete `npm install`** (a large
+  `@qvac` native package didn't finish downloading). Fix:
+  ```bash
+  npm ls @qvac/llm-llamacpp     # should print a version; if "missing"/empty, the install is incomplete
+  # then reinstall cleanly:
+  #   Windows (PowerShell):  Remove-Item -Recurse -Force node_modules ; npm install
+  #   macOS/Linux:           rm -rf node_modules && npm install
+  ```
+  Watch the install finish with `added NNN packages` and **no** `npm error`. On Windows,
+  apply the [Defender exclusion](#windows-note) first, and an **antivirus** can also block
+  the worker — allow Node, or test with it briefly off. (A one-off retry sometimes clears
+  a transient timeout, too.)
+- **First click seems to hang / nothing happens** — on a feature's first use it's loading
+  (and on the very first run, downloading) the model. CPU inference is slow; give it up to
+  a minute. The status shows a progress counter.
+- **`Error: listen EADDRINUSE … 8787`** — port 8787 is taken. Run on another port:
+  ```bash
+  #   Windows (PowerShell):  $env:PORT=8800 ; npm run ui
+  #   macOS/Linux:           PORT=8800 npm run ui
+  ```
+- **Model download stalls / `REQUEST_TIMEOUT` / `403 host_not_allowed`** — you're on a
+  restricted network that blocks the model registry/HuggingFace. Do the first run on a
+  normal network, then it's offline (see [Models](#models)).
+- **`git pull` says "local changes to package.json"** — `npm` rewrote it; discard and pull:
+  `git checkout -- package.json && git pull`.
+
 ## Reproducibility checklist
 
 1. `node --version` ≥ 18.
