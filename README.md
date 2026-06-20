@@ -110,9 +110,18 @@ stop the app later, press **Ctrl+C** in the terminal.
 ### <a name="windows-note"></a>Windows note (important)
 
 On Windows, **Windows Defender real-time scanning locks native binaries as npm writes
-them**, making `npm install` crawl and fail with `EIDLETIMEOUT` / `EPERM`. If install
-keeps timing out, add Defender exclusions — open PowerShell **as Administrator**
-(right-click → "Run as administrator") and run:
+them**, making `npm install` crawl and fail with `EIDLETIMEOUT` / `EPERM`. Add a Defender
+exclusion for the project folder. **Easiest (clickable) way:**
+
+1. Open **Windows Security** → **Virus & threat protection**.
+2. Under *Virus & threat protection settings*, click **Manage settings**.
+3. Scroll to **Exclusions** → **Add or remove exclusions** → **Add an exclusion** →
+   **Folder**, and pick your `VitalLog-App` folder.
+
+**Or via the command line** — this is a **PowerShell** command, and PowerShell must be run
+**as Administrator** (it will *not* work in the regular Command Prompt — you'd get "not
+recognized as an internal or external command"). Press Start, type **PowerShell**,
+**right-click → Run as administrator**, then run (replace the path with your real folder):
 
 ```powershell
 Add-MpPreference -ExclusionPath "C:\path\to\VitalLog-App"

@@ -292,6 +292,16 @@ async function handleRagIngest(res: ServerResponse) {
 }
 
 // ---- routing ----------------------------------------------------------------
+// Resilience: a crash in the on-device worker (e.g. missing native runtime) must never
+// take down the whole server — otherwise the UI gets ERR_CONNECTION_REFUSED / "Failed to
+// fetch" instead of a clear error. Keep the process alive and just log.
+process.on("uncaughtException", (err) => {
+  console.error("[server] uncaught exception (server stays up):", err);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("[server] unhandled rejection (server stays up):", err);
+});
+
 const server = createServer(async (req, res) => {
   const url = (req.url || "/").split("?")[0];
   const method = req.method || "GET";
